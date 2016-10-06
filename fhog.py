@@ -12,14 +12,14 @@ def func1(dx, dy, boundary_x, boundary_y, height, width, numChannels):
     r = np.zeros((height, width), np.float32)
     alfa = np.zeros((height, width, 2), np.int)
 
-    for j in xrange(1, height-1):
-        for i in xrange(1, width-1):
+    for j in range(1, height-1):
+        for i in range(1, width-1):
             c = 0
             x = dx[j, i, c]
             y = dy[j, i, c]
             r[j, i] = np.sqrt(x*x + y*y)
 
-            for ch in xrange(1, numChannels):
+            for ch in range(1, numChannels):
                 tx = dx[j, i, ch]
                 ty = dy[j, i, ch]
                 magnitude = np.sqrt(tx*tx + ty*ty)
@@ -32,7 +32,7 @@ def func1(dx, dy, boundary_x, boundary_y, height, width, numChannels):
             mmax = boundary_x[0]*x + boundary_y[0]*y
             maxi = 0
 
-            for kk in xrange(0, NUM_SECTOR):
+            for kk in range(0, NUM_SECTOR):
                 dotProd = boundary_x[kk]*x + boundary_y[kk]*y
                 if(dotProd > mmax):
                     mmax = dotProd
@@ -48,10 +48,10 @@ def func1(dx, dy, boundary_x, boundary_y, height, width, numChannels):
 @jit(cache=True)
 def func2(dx, dy, boundary_x, boundary_y, r, alfa, nearest, w, k, height, width, sizeX, sizeY, p, stringSize):
     mapp = np.zeros((sizeX*sizeY*p), np.float32)
-    for i in xrange(sizeY):
-        for j in xrange(sizeX):
-            for ii in xrange(k):
-                for jj in xrange(k):
+    for i in range(sizeY):
+        for j in range(sizeX):
+            for ii in range(k):
+                for jj in range(k):
                     if((i * k + ii > 0) and (i * k + ii < height - 1) and (j * k + jj > 0) and (j * k + jj < width  - 1)):
                         mapp[i*stringSize + j*p + alfa[k*i+ii,j*k+jj,0]] +=  r[k*i+ii,j*k+jj] * w[ii,0] * w[jj,0]
                         mapp[i*stringSize + j*p + alfa[k*i+ii,j*k+jj,1] + NUM_SECTOR] +=  r[k*i+ii,j*k+jj] * w[ii,0] * w[jj,0]
@@ -69,8 +69,8 @@ def func2(dx, dy, boundary_x, boundary_y, r, alfa, nearest, w, k, height, width,
 @jit(cache=True)
 def func3(partOfNorm, mappmap, sizeX, sizeY, p, xp, pp):
 	newData = np.zeros((sizeY*sizeX*pp), np.float32)
-	for i in xrange(1, sizeY+1):
-		for j in xrange(1, sizeX+1):
+	for i in range(1, sizeY+1):
+		for j in range(1, sizeX+1):
 			pos1 = i * (sizeX+2) * xp + j * xp
 			pos2 = (i-1) * sizeX * pp + (j-1) * pp
 
@@ -106,16 +106,16 @@ def func3(partOfNorm, mappmap, sizeX, sizeY, p, xp, pp):
 @jit(cache=True)
 def func4(mappmap, p, sizeX, sizeY, pp, yp, xp, nx, ny):
 	newData = np.zeros((sizeX*sizeY*pp), np.float32)
-	for i in xrange(sizeY):
-		for j in xrange(sizeX):
+	for i in range(sizeY):
+		for j in range(sizeX):
 			pos1 = (i*sizeX + j) * p
 			pos2 = (i*sizeX + j) * pp
 
-			for jj in xrange(2 * xp):  # 2*9
+			for jj in range(2 * xp):  # 2*9
 				newData[pos2 + jj] = np.sum(mappmap[pos1 + yp*xp + jj : pos1 + 3*yp*xp + jj : 2*xp]) * ny
-			for jj in xrange(xp):  # 9
+			for jj in range(xp):  # 9
 				newData[pos2 + 2*xp + jj] = np.sum(mappmap[pos1 + jj : pos1 + jj + yp*xp : xp]) * ny
-			for ii in xrange(yp):  # 4
+			for ii in range(yp):  # 4
 				newData[pos2 + 3*xp + ii] = np.sum(mappmap[pos1 + yp*xp + ii*xp*2 : pos1 + yp*xp + ii*xp*2 + 2*xp]) * nx
 	return newData
 
@@ -129,8 +129,8 @@ def getFeatureMaps(image, k, mapp):
 	assert(image.ndim==3 and image.shape[2])
 	numChannels = 3 #(1 if image.ndim==2 else image.shape[2])
 
-	sizeX = width / k
-	sizeY = height / k
+	sizeX = int(width / k)
+	sizeY = int(height / k)
 	px = 3 * NUM_SECTOR
 	p = px
 	stringSize = sizeX * p
@@ -168,7 +168,7 @@ def getFeatureMaps(image, k, mapp):
 	### ~0.001s
 
 	nearest = np.ones((k), np.int)
-	nearest[0:k/2] = -1
+	nearest[0:int(k/2)] = -1
 
 	w = np.zeros((k, 2), np.float32)
 	a_x = np.concatenate((k/2 - np.arange(k/2) - 0.5, np.arange(k/2,k) - k/2 + 0.5)).astype(np.float32)
