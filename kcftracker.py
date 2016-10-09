@@ -212,7 +212,7 @@ class KCFTracker:
         cx = self._roi[0] + self._roi[2] / 2  # float
         cy = self._roi[1] + self._roi[3] / 2  # float
 
-        if (inithann):
+        if inithann:
             padded_w = self._roi[2] * self.padding
             padded_h = self._roi[3] * self.padding
 
@@ -302,9 +302,9 @@ class KCFTracker:
     def init(self, roi, image):
         self._roi = list(map(float, roi))
         assert (roi[2] > 0 and roi[3] > 0)
-        self._tmpl = self.getFeatures(image, 1)
-        self._prob = self.createGaussianPeak(self.size_patch[0], self.size_patch[1])
-        self._alphaf = np.zeros((self.size_patch[0], self.size_patch[1], 2), np.float32)
+        self._tmpl = self.getFeatures(image, 1) # F
+        self._prob = self.createGaussianPeak(self.size_patch[0], self.size_patch[1]) #G
+        self._alphaf = np.zeros((self.size_patch[0], self.size_patch[1], 2), np.float32) # H
         self.train(self._tmpl, 1.0)
 
     def update(self, image):
