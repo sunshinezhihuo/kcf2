@@ -1,8 +1,7 @@
-import numpy as np
 import cv2
 import sys
 import time
-
+import os
 import kcftracker
 from input_helper import input_process, read_gt
 
@@ -53,9 +52,12 @@ def main(video, ground_truth=None):
 
     tracker = kcftracker.KCFTracker(True, True, True)  # hog, fixed_window, multiscale
     # if you use hog feature, there will be a short pause after you draw a first boundingbox, that is due to the use of Numba.
+    dirname, window_name = os.path.split(video)
+    if window_name == '':
+        window_name = os.path.basename(dirname)
 
-    cv2.namedWindow('tracking')
-    cv2.setMouseCallback('tracking', draw_boundingbox)
+    cv2.namedWindow(window_name)
+    cv2.setMouseCallback(window_name, draw_boundingbox)
 
     draw_gt = False
     if (video == 0):
@@ -69,6 +71,10 @@ def main(video, ground_truth=None):
             l, t, r, b = gt_box[0]
             ix, iy, w, h = l, t, r - l, b - t
 
+            dirname = os.path.dirname(ground_truth)
+            kcf_name = os.path.join(dirname, "kcf_groundtruth.txt")
+            kcf_box = read_gt(kcf_name)
+
         inteval = 30
         ret, cap = input_process(video)
         if ret == 1:
@@ -80,6 +86,7 @@ def main(video, ground_truth=None):
                 elif (initTracking):
                     cv2.rectangle(frame, (ix, iy), (ix + w, iy + h), (0, 255, 255), 2)
                     tracker.init([ix, iy, w, h], frame)
+                    result.append((ix,iy,ix+w,iy+h))
 
                     initTracking = False
                     onTracking = True
@@ -101,10 +108,13 @@ def main(video, ground_truth=None):
 
                 if draw_gt:
                     x1, y1, x2, y2 = gt_box[fn]
-                    # print(x1,y1,x2,y2)
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
 
-                cv2.imshow('tracking', frame)
+                    x1, y1, x2, y2 = kcf_box[fn]
+                    # print(x1,y1,x2,y2)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
+
+                cv2.imshow(window_name, frame)
                 # time.sleep(0.05)
                 c = cv2.waitKey(inteval) & 0xFF
                 if c == 27 or c == ord('q'):
@@ -117,7 +127,9 @@ def main(video, ground_truth=None):
                             # when drag the window run this code
                             vis_copy = frame.copy()
                             cv2.rectangle(vis_copy, (ix, iy), (cx, cy), (0, 255, 0), 2)
-                            cv2.imshow('tracking', vis_copy)
+                            cv2.imshow(window_name, vis_copy)
+
+            cv2.destroyAllWindows()
 
         elif ret == 3:
             while (cap.isOpened()):
@@ -149,7 +161,7 @@ def main(video, ground_truth=None):
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                                 (0, 0, 255), 2)
 
-                cv2.imshow('tracking', frame)
+                cv2.imshow(window_name, frame)
                 c = cv2.waitKey(inteval) & 0xFF
                 if c == 27 or c == ord('q'):
                     break
@@ -161,7 +173,7 @@ def main(video, ground_truth=None):
                             # when drag the window run this code
                             vis_copy = frame.copy()
                             cv2.rectangle(vis_copy, (ix, iy), (cx, cy), (0, 255, 0), 2)
-                            cv2.imshow('tracking', vis_copy)
+                            cv2.imshow(window_name, vis_copy)
 
             cap.release()
             cv2.destroyAllWindows()

@@ -11,12 +11,12 @@ if __name__ == '__main__':
     for video in videos:
         gts.append(os.path.join(video_src, video, 'groundtruth.txt'))
 
-    for video, gt in zip(videos, gts):
+    for i,(video, gt) in enumerate(zip(videos, gts)):
         res = main(os.path.join(video_src, video), gt)
         res_path = os.path.join(video_src, video, 'kcf_groundtruth.txt')
-
+        print("%d th of %d videos" % (i, len(videos)))
         with open(res_path, 'w') as fp:
             for bbox in res:
-                line = str(bbox[0]) + ',' + str(bbox[1]) + ',' + str(bbox[2]) + ',' + str(bbox[2]) + '\n'
+                line = str(bbox[0]) + ',' + str(bbox[1]) + ',' + str(bbox[2]) + ',' + str(bbox[3]) + '\n'
                 fp.writelines(line)
 

@@ -120,7 +120,7 @@ class KCFTracker:
 
         if (hog):  # HOG feature
             # VOT
-            self.interp_factor = 0.012  # linear interpolation factor for adaptation
+            self.interp_factor = 0.012  # linear interpolation factor for adaptation 0.012
             self.sigma = 0.6  # gaussian kernel bandwidth
             # TPAMI   #interp_factor = 0.02   #sigma = 0.5
             self.cell_size = 4  # HOG cell size
@@ -270,10 +270,16 @@ class KCFTracker:
         return FeaturesMap
 
     def detect(self, z, x):
+        """
+        z: the
+        x: the new feature
+        match the input features with the templete
+        """
         k = self.gaussianCorrelation(x, z)
         res = real(fftd(complexMultiplication(self._alphaf, fftd(k)), True))
-
-        _, pv, _, pi = cv2.minMaxLoc(res)  # pv:float  pi:tuple of int
+        cv2.imshow("match", cv2.resize(res, (4*res.shape[0], 4*res.shape[1])))
+        # pv:float, max value  pi:tuple of int, max location
+        _, pv, _, pi = cv2.minMaxLoc(res)
         p = [float(pi[0]), float(pi[1])]  # cv::Point2f, [x,y]  #[float,float]
 
         if (pi[0] > 0 and pi[0] < res.shape[1] - 1):
@@ -299,6 +305,10 @@ class KCFTracker:
         self._tmpl = (1 - train_interp_factor) * self._tmpl + train_interp_factor * x
         self._alphaf = (1 - train_interp_factor) * self._alphaf + train_interp_factor * alphaf
 
+        # cv2.imshow("tmpl", self._tmpl)
+        # cv2.imshow("alphaf0", self._alphaf[:,:,0])
+        # cv2.imshow("alphaf1", self._alphaf[:, :, 1])
+
     def init(self, roi, image):
         self._roi = list(map(float, roi))
         assert (roi[2] > 0 and roi[3] > 0)
@@ -312,7 +322,7 @@ class KCFTracker:
         if (self._roi[1] + self._roi[3] <= 0):  self._roi[1] = -self._roi[2] + 1
         if (self._roi[0] >= image.shape[1] - 1):  self._roi[0] = image.shape[1] - 2
         if (self._roi[1] >= image.shape[0] - 1):  self._roi[1] = image.shape[0] - 2
-
+        # the center of the roi
         cx = self._roi[0] + self._roi[2] / 2.
         cy = self._roi[1] + self._roi[3] / 2.
 
