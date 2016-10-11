@@ -3,6 +3,8 @@ import sys
 import time
 import os
 import kcftracker
+import numpy as np
+from matplotlib import pyplot as plt
 from input_helper import input_process, read_gt
 
 selectingObject = False
@@ -11,7 +13,6 @@ onTracking = False
 ix, iy, cx, cy = -1, -1, -1, -1
 w, h = 0, 0
 
-inteval = 1
 duration = 0.01
 
 
@@ -76,6 +77,7 @@ def main(video, ground_truth=None):
             kcf_box = read_gt(kcf_name)
 
         inteval = 30
+        peak = []
         ret, cap = input_process(video)
         if ret == 1:
             for fn, img_file in enumerate(cap):
@@ -85,6 +87,7 @@ def main(video, ground_truth=None):
                     cv2.rectangle(frame, (ix, iy), (cx, cy), (0, 255, 255), 1)
                 elif (initTracking):
                     cv2.rectangle(frame, (ix, iy), (ix + w, iy + h), (0, 255, 255), 2)
+
                     tracker.init([ix, iy, w, h], frame)
                     result.append((ix,iy,ix+w,iy+h))
 
@@ -92,7 +95,8 @@ def main(video, ground_truth=None):
                     onTracking = True
                 elif (onTracking):
                     t0 = time.time()
-                    boundingbox = tracker.update(frame)
+                    boundingbox, peak_value = tracker.update(frame)
+                    peak.append(peak_value)
                     t1 = time.time()
 
                     boundingbox = list(map(int, boundingbox))
@@ -113,6 +117,9 @@ def main(video, ground_truth=None):
                     x1, y1, x2, y2 = kcf_box[fn]
                     # print(x1,y1,x2,y2)
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
+                    cv2.putText(frame, "num: " + str(fn), (8, 40),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                                (0, 0, 255), 2)
 
                 cv2.imshow(window_name, frame)
                 # time.sleep(0.05)
@@ -130,6 +137,10 @@ def main(video, ground_truth=None):
                             cv2.imshow(window_name, vis_copy)
 
             cv2.destroyAllWindows()
+            x = np.linspace(0, len(peak)-1, len(peak))
+            peak = np.array(peak)
+            plt.plot(x, peak)
+            plt.show()
 
         elif ret == 3:
             while (cap.isOpened()):
