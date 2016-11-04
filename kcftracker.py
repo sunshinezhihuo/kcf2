@@ -43,6 +43,11 @@ def complexDivision(a, b):
 
 
 def rearrange(img):
+    """
+    shift the dft result with (w/2, h/2)
+    :param img:
+    :return:
+    """
     # return np.fft.fftshift(img, axes=(0,1))
     h, w = img.shape
     if h % 2 != 0:
@@ -134,7 +139,7 @@ class KCFTracker:
         if (multiscale):
             self.template_size = 96  # template size
             self.scale_step = 1.05  # scale step for multi-scale estimation
-            self.scale_weight = 0.96  # to downweight detection scores of other scales for added stability
+            self.scale_weight = 0.95  # to downweight detection scores of other scales for added stability
         elif (fixed_window):
             self.template_size = 96
             self.scale_step = 1
@@ -142,6 +147,7 @@ class KCFTracker:
             self.template_size = 1
             self.scale_step = 1
 
+        self.change_scale_weight = 0.0
         self._tmpl_sz = [0, 0]  # cv::Size, [width,height]  #[int,int]
         self._roi = [0., 0., 0., 0.]  # cv::Rect2f, [x,y,width,height]  #[float,float,float,float]
         self.size_patch = [0, 0, 0]  # [int,int,int]
@@ -188,13 +194,15 @@ class KCFTracker:
                 caux = cv2.mulSpectrums(fftd(x1aux), fftd(x2aux), 0, conjB=True)
                 caux = real(fftd(caux, True))
                 # caux = rearrange(caux)
+                # joint together with element
                 c += caux
-            c = rearrange(c)
+            # c = rearrange(c)
+            c = np.fft.fftshift(c)
         else:
             c = cv2.mulSpectrums(fftd(x1), fftd(x2), 0, conjB=True)  # 'conjB=' is necessary!
-            c = fftd(c, True)
-            c = real(c)
-            c = rearrange(c)
+            c = real(fftd(c, True))
+            # c = rearrange(c)
+            c = np.fft.fftshift(c)
 
         if (x1.ndim == 3 and x2.ndim == 3):
             d = (np.sum(x1[:, :, 0] * x1[:, :, 0]) + np.sum(x2[:, :, 0] * x2[:, :, 0]) - 2.0 * c) / (
@@ -220,9 +228,13 @@ class KCFTracker:
             if (self.template_size > 1):
                 if (padded_w >= padded_h):
                     self._scalex = padded_w / float(self.template_size)
+                    # self._scaley = self._scalex
+
                 else:
                     self._scaley = padded_h / float(self.template_size)
-                self._tmpl_sz[0] = int(padded_w / self._scalex)
+                    # self._scalex = self._scaley
+
+                self._tmpl_sz[0] = int(padded_w / self._scalex) # =self.template_size
                 self._tmpl_sz[1] = int(padded_h / self._scaley)
             else:
                 self._tmpl_sz[0] = int(padded_w)
@@ -246,7 +258,7 @@ class KCFTracker:
 
         z = subwindow(image, extracted_roi, cv2.BORDER_REPLICATE)
         if (z.shape[1] != self._tmpl_sz[0] or z.shape[0] != self._tmpl_sz[1]):
-            z = cv2.resize(z, tuple(np.array(self._tmpl_sz).astype(np.uint8)))
+            z = cv2.resize(z, tuple(np.array(self._tmpl_sz).astype(np.uint16)))
 
         if (self._hogfeatures):
             mapp = {'sizeX': 0, 'sizeY': 0, 'numFeatures': 0, 'map': 0}
@@ -259,7 +271,7 @@ class KCFTracker:
         else:
             if (z.ndim == 3 and z.shape[2] == 3):
                 # z:(size_patch[0], size_patch[1], 3)  FeaturesMap:(size_patch[0], size_patch[1])   #np.int8  #0~255
-                FeaturesMap = cv2.cvtColor(z, cv2.COLOR_BGR2HSV)[:,:,0]
+                FeaturesMap = cv2.cvtColor(z, cv2.COLOR_BGR2GRAY)
             elif (z.ndim == 2):
                 FeaturesMap = z  # (size_patch[0], size_patch[1]) #np.int8  #0~255
             FeaturesMap = FeaturesMap.astype(np.float32) / 255.0 - 0.5
@@ -267,9 +279,8 @@ class KCFTracker:
 
         if (inithann):
             self.createHanningMats()  # createHanningMats need size_patch
-
         FeaturesMap = self.hann * FeaturesMap
-        cv2.imshow("featuremap", FeaturesMap)
+        # cv2.imshow("featuremap", FeaturesMap)
         return FeaturesMap
 
     def detect(self, z, x):
@@ -284,7 +295,7 @@ class KCFTracker:
         # pv:float, max value  pi:tuple of int, max location
         _, pv, _, pi = cv2.minMaxLoc(res)
         p = [float(pi[0]), float(pi[1])]  # cv::Point2f, [x,y]  #[float,float]
-        radis = (int(self._scalex * self.cell_size * p[0]), int(self._scaley * self.cell_size * p[1]))
+        # radis = (int(self._scalex * self.cell_size * p[0]), int(self._scaley * self.cell_size * p[1]))
 
         if (pi[0] > 0 and pi[0] < res.shape[1] - 1):
             p[0] += self.subPixelPeak(res[pi[1], pi[0] - 1], pv, res[pi[1], pi[0] + 1])
@@ -294,19 +305,19 @@ class KCFTracker:
         p[0] -= res.shape[1] / 2.
         p[1] -= res.shape[0] / 2.
 
-        # res_vis = cv2.resize(res_vis,
-        #            (int(self._scalex * self.cell_size * res.shape[0]), int(self._scaley * self.cell_size * res.shape[1])))
-        #
-        # # print(radis)
+        res_vis = cv2.resize(res_vis,
+                   (int(self._scalex * self.cell_size * res.shape[0]), int(self._scaley * self.cell_size * res.shape[1])))
+
+
+        # print(radis)
         # cv2.circle(res_vis, radis, 6, (255, 255, 255), 1)
-        # cv2.imshow("match", res_vis)
+        cv2.imshow("match", res_vis)
 
         return p, pv
 
     def train(self, x, train_interp_factor):
         k = self.gaussianCorrelation(x, x)
         alphaf = complexDivision(self._prob, fftd(k) + self.lambdar)
-        # print('alphaf:', alphaf.shape, '_alphal:', self._alphaf.shape)
         h, w = alphaf.shape[:2]
         _h, _w = self._alphaf.shape[:2]
         if h != _h:
@@ -316,9 +327,6 @@ class KCFTracker:
         self._tmpl = (1 - train_interp_factor) * self._tmpl + train_interp_factor * x
         self._alphaf = (1 - train_interp_factor) * self._alphaf + train_interp_factor * alphaf
 
-        # cv2.imshow("tmpl", self._tmpl)
-        # cv2.imshow("alphaf0", self._alphaf[:,:,0])
-        # cv2.imshow("alphaf1", self._alphaf[:, :, 1])
 
     def init(self, roi, image):
         self._roi = list(map(float, roi))
@@ -349,7 +357,7 @@ class KCFTracker:
 
         x = self.getFeatures(image, 0, 1.0, 1.0)
         self.train(x, self.interp_factor)
-
+        # print(self._scalex, self._scaley)
         return self._roi, peak_value
 
     def change_scale(self, image):
@@ -371,7 +379,7 @@ class KCFTracker:
             new_loc4, new_peak_value4 = self.detect(self._tmpl, self.getFeatures(image, 0, 1.0, self.scale_step))
 
             new_loc5, new_peak_value5 = self.detect(self._tmpl, self.getFeatures(image, 0, 1.0 / self.scale_step, 1.0 / self.scale_step))
-
+            #
             new_loc6, new_peak_value6 = self.detect(self._tmpl, self.getFeatures(image, 0, self.scale_step, self.scale_step))
 
             l = np.array([new_loc1, new_loc2, new_loc3, new_loc4, new_loc5, new_loc6])
@@ -405,9 +413,11 @@ class KCFTracker:
                     self._scaley *= self.scale_step
                     self._roi[2] *= self.scale_step
                     self._roi[3] *= self.scale_step
-
-
-
+                self.change_scale_weight += 0.02
+                # print("change")
+            else:
+                self.change_scale_weight = 0
+                # print("do not change")
         # print(peak_value)
         self._roi[0] = cx - self._roi[2] / 2.0 + loc[0] * self.cell_size * self._scalex
         self._roi[1] = cy - self._roi[3] / 2.0 + loc[1] * self.cell_size * self._scaley

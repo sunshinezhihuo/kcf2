@@ -51,7 +51,7 @@ def main(video, ground_truth=None):
     global selectingObject, initTracking, onTracking, ix, iy, cx, cy, w, h
     global duration, inteval
 
-    tracker = kcftracker.KCFTracker(True, True, True)  # hog, fixed_window, multiscale
+    tracker = kcftracker.KCFTracker(False, True, True)  # hog, fixed_window, multiscale
     # if you use hog feature, there will be a short pause after you draw a first boundingbox, that is due to the use of Numba.
     dirname, window_name = os.path.split(video)
     if window_name == '':
@@ -76,21 +76,20 @@ def main(video, ground_truth=None):
             kcf_name = os.path.join(dirname, "kcf_groundtruth.txt")
             kcf_box = read_gt(kcf_name)
 
-        inteval = 30
+        inteval = 10
         peak = []
         ret, cap = input_process(video)
         if ret == 1:
             for fn, img_file in enumerate(cap):
                 frame = cv2.imread(img_file)
+                rows, cols = frame.shape[:2]
 
                 if (selectingObject):
                     cv2.rectangle(frame, (ix, iy), (cx, cy), (0, 255, 255), 1)
                 elif (initTracking):
-                    cv2.rectangle(frame, (ix, iy), (ix + w, iy + h), (0, 255, 255), 2)
-
                     tracker.init([ix, iy, w, h], frame)
                     result.append((ix,iy,ix+w,iy+h))
-
+                    cv2.rectangle(frame, (ix, iy), (ix + w, iy + h), (0, 255, 255), 2)
                     initTracking = False
                     onTracking = True
                 elif (onTracking):
@@ -109,6 +108,8 @@ def main(video, ground_truth=None):
                     cv2.putText(frame, 'FPS: ' + str(1 / duration)[:4].strip('.'), (8, 20),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                                 (0, 0, 255), 2)
+                    cv2.putText(frame, "peak: " + str(peak_value), (8, rows - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                                (0, 0, 255), 1)
 
                 if draw_gt:
                     x1, y1, x2, y2 = gt_box[fn]
@@ -140,7 +141,8 @@ def main(video, ground_truth=None):
             x = np.linspace(0, len(peak)-1, len(peak))
             peak = np.array(peak)
             plt.plot(x, peak)
-            plt.show()
+            plt.grid()
+            # plt.show()
 
         elif ret == 3:
             while (cap.isOpened()):
@@ -157,9 +159,9 @@ def main(video, ground_truth=None):
                     initTracking = False
                     onTracking = True
                 elif (onTracking):
-                    t0 = time()
-                    boundingbox = tracker.update(frame)
-                    t1 = time()
+                    t0 = time.time()
+                    boundingbox, peak_value = tracker.update(frame)
+                    t1 = time.time()
 
                     boundingbox = list(map(int, boundingbox))
                     cv2.rectangle(frame, (boundingbox[0], boundingbox[1]),
@@ -197,5 +199,10 @@ if __name__ == '__main__':
         gt = sys.argv[2]
     else:
         gt = None
-    main(video, gt)
+    res = main(video, gt)
 
+    # res_path = os.path.join(video, 'kcf2_groundtruth.txt')
+    # with open(res_path, 'w') as fp:
+    #     for bbox in res:
+    #         line = str(bbox[0]) + ',' + str(bbox[1]) + ',' + str(bbox[2]) + ',' + str(bbox[3]) + '\n'
+    #         fp.writelines(line)
