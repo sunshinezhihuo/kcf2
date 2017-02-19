@@ -35,3 +35,17 @@ def read_gt(path):
             y2 = int(max(b[1::2]))
             l.append((x1,y1,x2,y2))
     return l
+
+
+def read_vtb_gt(path):
+    with open(path, 'r') as f:
+        data = f.readlines()
+        l = []
+        for line in data:
+            b = line.split(',')
+            x1 = int(b[0])
+            y1 = int(b[1])
+            x2 = int(b[0]) + int(b[2])
+            y2 = int(b[1]) + int(b[3])
+            l.append((x1,y1,x2,y2))
+    return l

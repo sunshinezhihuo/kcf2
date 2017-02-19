@@ -2,25 +2,25 @@
 # -*- coding: utf-8 -*-
 # Created by Hison on 10/16/16
 from matplotlib import pyplot as plt
+import scipy.io
 import numpy as np
 import os
 
-dataset = "/home/zhr/tensorflow/visual_tracking/data/video/vot2015"
+
 
 
 def read_gt(path):
-    gt_box = []
     with open(path, 'r') as f:
         data = f.readlines()
+        l = []
         for line in data:
             b = line.split(',')
-            b = list(map(float, b))
-            x1 = int(min(b[0::2]))
-            y1 = int(min(b[1::2]))
-            x2 = int(max(b[0::2]))
-            y2 = int(max(b[1::2]))
-            gt_box.append((x1, y1, x2, y2))
-    return gt_box
+            x1 = int(b[0])
+            y1 = int(b[1])
+            x2 = int(b[0]) + int(b[2])
+            y2 = int(b[1]) + int(b[3])
+            l.append((x1,y1,x2,y2))
+    return l
 
 
 def read_res(path):
@@ -183,9 +183,12 @@ def successPlot_all(gt_boxs, res_boxs):
     arg = x.tolist().index(standard)
     orde = []
     for key, line in res_lines.items():
-        sp = line[arg]
-        orde.append(sp)
-        p = ax.plot(x, line, label=key+' ['+'%.3f' % sp + ']')
+        pp = line[arg]
+        orde.append(pp)
+        if key == 'ours':
+            p = ax.plot(x, line, label=key + ' [' + '%.3f' % pp + ']', linewidth=3)
+        else:
+            p = ax.plot(x, line, label=key + ' [' + '%.3f' % pp + ']')
     handles, labels = ax.get_legend_handles_labels()
 
     orde2 = sorted(orde, reverse=True)
@@ -199,10 +202,6 @@ def successPlot_all(gt_boxs, res_boxs):
     ax.legend(handles2, labels2)
     # plt.legend(plot_handler, plot_name, 'best', numpoints=1)
     plt.show()
-
-
-    # for key, line in res_lines.items():
-    #     result[key] = line[arg]
     return None
 
 
@@ -257,7 +256,10 @@ def precisionPlot_all(gt_boxs, res_boxs):
     for key, line in res_lines.items():
         pp = line[arg]
         orde.append(pp)
-        p = ax.plot(x, line, label=key+' ['+'%.3f' % pp + ']')
+        if key == 'ours':
+            p = ax.plot(x, line, label=key + ' [' + '%.3f' % pp + ']', linewidth=3)
+        else:
+            p = ax.plot(x, line, label=key + ' [' + '%.3f' % pp + ']')
     handles, labels = ax.get_legend_handles_labels()
 
     orde2 = sorted(orde, reverse=True)
@@ -269,40 +271,46 @@ def precisionPlot_all(gt_boxs, res_boxs):
         labels2.append(labels[n])
 
     ax.legend(handles2, labels2)
-    # plt.legend(plot_handler, plot_name, 'best', numpoints=1)
     plt.show()
-
     return None
 
 
 if __name__ == '__main__':
+    dataset = "/home/zhr/tensorflow/visual_tracking/data/video/CVPR13"
+
+    algo = ["CSK", "TLD", "CT", "Struck", "KMS", "VTD", "OAB", "DFT", "MIL"] # , "SCM"
+    algo_path = "/home/zhr/tensorflow/visual_tracking/data/video/VTB50_results/results/results_TRE_CVPR13"
+
     videos = [dir for dir in os.listdir(dataset) if os.path.isdir(os.path.join(dataset, dir))]
+    videos.sort()
     gt_boxs = dict()
     res0_boxs = dict()
-    res1_boxs = dict()
-    res2_boxs = dict()
+    others_boxs = dict()
+    for al in algo:
+        others_boxs[al] = dict()
+
     for video in videos:
-        gt_path = os.path.join(dataset, video, 'groundtruth.txt')
-        res0_path = os.path.join(dataset, video, 'kcf0_groundtruth.txt')
-        # res1_path = os.path.join(dataset, video, 'kcf_groundtruth.txt')
-        res2_path = os.path.join(dataset, video, 'kcf2_groundtruth.txt')
+        gt_path = os.path.join(dataset, video, 'groundtruth_rect.txt')
         gt = read_gt(gt_path)
-        res0 = read_res(res0_path)
-        # res1 = read_res(res1_path)
-        res2 = read_res(res2_path)
         gt_boxs[video] = gt
+
+        res0_path = os.path.join(dataset, video, 'kcf2_groundtruth.txt')
+        res0 = read_res(res0_path)
         res0_boxs[video] = res0
-        # res1_boxs[video] = res1
-        res2_boxs[video] = res2
-    res_box = {"kcf":res0_boxs,  "ours":res2_boxs}
+
+        for al in algo:
+            file_path = os.path.join(algo_path, video[0].lower() + video[1:] +'_'+al+'.mat')
+            data = scipy.io.loadmat(file_path)
+            tmp = data['results'][0][0][0][0]
+            if len(tmp[0]) > 10:
+                bounding_box = tmp[0]
+            else:
+                bounding_box = tmp[1]
+            bounding_box[:,2] += bounding_box[:,0]
+            bounding_box[:,3] += bounding_box[:,1]
+            others_boxs[al][video] = bounding_box
+    res_box = {"ours":res0_boxs}
+    res_box.update(others_boxs)
 
     res = successPlot_all(gt_boxs, res_box)
-    print(res)
     res = precisionPlot_all(gt_boxs, res_box)
-    print(res)
-    # import  sys
-    # video_src = sys.argv[1]
-    # gt_path = os.path.join(video_src, "groundtruth.txt")
-    # kcf_path = os.path.join(video_src, "kcf_groundtruth.txt")
-    # kcf2_path = os.path.join(video_src, "kcf2_groundtruth.txt")
-    # successPlot(read_gt(gt_path), read_res(kcf_path), read_res(kcf2_path))

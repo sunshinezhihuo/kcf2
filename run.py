@@ -5,7 +5,7 @@ import os
 import kcftracker
 import numpy as np
 from matplotlib import pyplot as plt
-from input_helper import input_process, read_gt
+from input_helper import input_process, read_gt, read_vtb_gt
 
 selectingObject = False
 initTracking = False
@@ -51,7 +51,7 @@ def main(video, ground_truth=None):
     global selectingObject, initTracking, onTracking, ix, iy, cx, cy, w, h
     global duration, inteval
 
-    tracker = kcftracker.KCFTracker(False, True, True)  # hog, fixed_window, multiscale
+    tracker = kcftracker.KCFTracker(True, True, True)  # hog, fixed_window, multiscale
     # if you use hog feature, there will be a short pause after you draw a first boundingbox, that is due to the use of Numba.
     dirname, window_name = os.path.split(video)
     if window_name == '':
@@ -67,14 +67,15 @@ def main(video, ground_truth=None):
 
         if ground_truth:
             draw_gt = True
-            gt_box = read_gt(ground_truth)
+            # gt_box = read_gt(ground_truth)
+            gt_box = read_vtb_gt(ground_truth)
             initTracking = True
             l, t, r, b = gt_box[0]
             ix, iy, w, h = l, t, r - l, b - t
 
-            dirname = os.path.dirname(ground_truth)
-            kcf_name = os.path.join(dirname, "kcf_groundtruth.txt")
-            kcf_box = read_gt(kcf_name)
+            # dirname = os.path.dirname(ground_truth)
+            # kcf_name = os.path.join(dirname, "kcf_groundtruth.txt")
+            # kcf_box = read_gt(kcf_name)
 
         inteval = 10
         peak = []
@@ -115,9 +116,9 @@ def main(video, ground_truth=None):
                     x1, y1, x2, y2 = gt_box[fn]
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
 
-                    x1, y1, x2, y2 = kcf_box[fn]
-                    # print(x1,y1,x2,y2)
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
+                    # x1, y1, x2, y2 = kcf_box[fn]
+                    # # print(x1,y1,x2,y2)
+                    # cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
                     cv2.putText(frame, "num: " + str(fn), (8, 40),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                                 (0, 0, 255), 2)
@@ -200,9 +201,12 @@ if __name__ == '__main__':
     else:
         gt = None
     res = main(video, gt)
-
+    # for vot2015
     # res_path = os.path.join(video, 'kcf2_groundtruth.txt')
+
+    # res_path = os.path.join(os.path.dirname(gt), 'kcf2_groundtruth.txt')
     # with open(res_path, 'w') as fp:
     #     for bbox in res:
     #         line = str(bbox[0]) + ',' + str(bbox[1]) + ',' + str(bbox[2]) + ',' + str(bbox[3]) + '\n'
     #         fp.writelines(line)
+
